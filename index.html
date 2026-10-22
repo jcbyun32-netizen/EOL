@@ -114,6 +114,11 @@ h1{font-size:1.25rem;font-weight:800;margin:0 0 .25rem}
 .ph .in{height:2.75rem;font-size:1rem}
 .sticky{background:var(--bg);z-index:5;padding-bottom:.25rem}
 select.in{appearance:auto}
+html{font-size:112.5%}
+h1{font-size:1.7rem}.sub{font-size:1.05rem}.lb{font-size:1rem}
+.tp{height:6rem;font-size:1.6rem}
+.dlg p{font-size:1.1rem}
+.pfb{display:grid;gap:.6rem;margin-bottom:.75rem}.pfb .pf{height:auto;padding:.6rem .4rem;font-size:1.1rem;line-height:1.35}.pfb .pf small{font-size:.85rem;font-weight:700}
 </style>
 </head>
 <body>
@@ -126,7 +131,7 @@ select.in{appearance:auto}
 <main id="app"></main>
 
 <script>
-const KEY='ls_funcinsp_v1',NAME_KEY='ls_oqc_inspector_v1',N=10;
+const KEY='ls_funcinsp_v1',NAME_KEY='ls_oqc_inspector_v1',N=5;
 const TYPES={
  SKID:{item:'SKID',name:'SKID 기능검사',opts:[['MRK00737AA KEA','737 · L타입'],['MRK00738AA KEA','738 · R타입']]},
  MLINK:{item:'M-LINK',name:'M-LINK 기능검사',opts:[['MRK00735AA LEG','735']]},
@@ -138,7 +143,7 @@ let cur=0,warned=false;
 function safeGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function safeSet(k,v){try{localStorage.setItem(k,v);return true}catch(e){return false}}
 function load(){
-  try{const j=safeGet(KEY);if(j){const o=JSON.parse(j);if(o&&Array.isArray(o.slots)&&o.slots.length===N)S=Object.assign(S,o)}}catch(e){}
+  try{const j=safeGet(KEY);if(j){const o=JSON.parse(j);if(o&&Array.isArray(o.slots)){S=Object.assign(S,o);S.slots=S.slots.concat(blank()).slice(0,N)}}}catch(e){}
   const n=safeGet(NAME_KEY);if(n&&!S.inspector)S.inspector=n;
   if(S.type&&!TYPES[S.type]){S.type='';S.screen='start'}
 }
@@ -232,8 +237,8 @@ function renderStart(){
   $('app').innerHTML=`<section class="card"><h1>${T.name}</h1><p class="sub">검사자·시리얼·시작시간을 입력하고 검사를 시작하세요.</p>
     <label class="lb" for="insp">검사자 이름</label>
     <input id="insp" class="in" style="margin-bottom:1.25rem" type="text" autocomplete="name" placeholder="예: 홍길동" value="${esc(S.inspector)}" oninput="S.inspector=this.value;safeSet(NAME_KEY,this.value);save()">
-    <label class="lb">시리얼 번호${T.opts.length>1?' (접두사 선택 후 뒤 숫자 입력)':' (뒤 숫자 입력)'}</label>
-    ${T.opts.length>1?`<select class="in" style="margin-bottom:.6rem" onchange="S.pfx=this.value;S.rest=cleanRest(S.rest);save();render()">${T.opts.map(o=>`<option value="${o[0]}" ${o[0]===S.pfx?'selected':''}>${o[0]}  (${o[1]})</option>`).join('')}</select>`:''}
+    <label class="lb">시리얼 번호${T.opts.length>1?' (접두사 버튼 선택 후 뒤 숫자 입력)':' (뒤 숫자 입력)'}</label>
+    ${T.opts.length>1?`<div class="pfb" style="grid-template-columns:repeat(${T.opts.length>1?2:1},1fr)">${T.opts.map(o=>`<button class="pf ${o[0]===S.pfx?'on':''}" onclick="setPfx('${o[0]}')">${o[0]}<br><small>${o[1]}</small></button>`).join('')}</div>`:''}
     <div class="row"><span class="pre" style="font-size:1.05rem;white-space:nowrap">${esc(S.pfx)}</span>
     <input id="rest" class="in" style="flex:1;min-width:0" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="숫자 입력" value="${esc(S.rest)}" oninput="S.rest=cleanRest(this.value);this.value=S.rest;save()"></div>
     <label class="lb" for="st">검사 시작 시간</label>
@@ -243,12 +248,14 @@ function renderStart(){
     <p id="err" class="err" style="display:none"></p>
     <button class="mid" style="margin-top:.75rem" onclick="S.type='';save();render()">◀ 검사 종류 다시 선택</button></section>`;
 }
-function selType(k){S.type=k;S.pfx=TYPES[k].opts[0][0];S.rest='';if(!S.start)S.start=nowLocal();save();render();window.scrollTo(0,0)}
-function startInspect(){
+function setPfx(v){S.pfx=v;S.rest=cleanRest(S.rest);save();render()}
+async function selType(k){if(!(await ask('"'+TYPES[k].name+'"을(를) 선택하셨습니다.\n이 검사를 진행할까요?','선택','다시 선택')))return;S.type=k;S.pfx=TYPES[k].opts[0][0];S.rest='';if(!S.start)S.start=nowLocal();save();render();window.scrollTo(0,0)}
+async function startInspect(){
   const e=$('err'),bad=(m,id)=>{e.textContent=m;e.style.display='';$(id).focus()};
   if(!S.inspector.trim())return bad('검사자 이름을 입력해 주세요.','insp');
   if(!S.rest.trim())return bad('시리얼 뒤 숫자를 입력해 주세요.','rest');
   if(!S.start)return bad('검사 시작 시간을 입력해 주세요.','st');
+  if(!(await ask('S/N이 맞습니까?\n\n'+serial(),'확인','수정')))return;
   S.slots=blank();S.lineout=false;S.endTxt='';S.screen='inspect';save();render();window.scrollTo(0,0);
 }
 /* ---------- 2. 검사 (특이사항 10칸) ---------- */
